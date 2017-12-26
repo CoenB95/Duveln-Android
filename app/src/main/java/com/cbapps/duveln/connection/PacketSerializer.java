@@ -1,8 +1,6 @@
 package com.cbapps.duveln.connection;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonSerializer;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -79,107 +77,105 @@ public class PacketSerializer {
 		return result;
 	}
 
-	public Future startClientSidePacketReader(Action<ClientSidePacket> onPacketReceived) {
-		return Task.Factory.StartNew(() = >
-				{
-		while (Open) {
-			try {
-				string json = ReadPacket(stream);
-				IClientPacket packet = JsonConvert.DeserializeObject < IClientPacket > (json, JsonSettings)
-				;
-				if (packet != null)
-					onPacketReceived ?.Invoke(packet);
-			} catch (IOException) {
-				NotifyConnectionClosed();
-			}
-		}
-			});
-	}
-
-	public Task StartServerSidePacketReader(Action<IServerPacket> onPacketReceived) {
-		return Task.Factory.StartNew(() = >
-				{
-		while (Open) {
-			try {
-				string json = ReadPacket(stream);
-				IServerPacket packet = JsonConvert.DeserializeObject < IServerPacket > (json, JsonSettings)
-				;
-				if (packet != null)
-					onPacketReceived ?.Invoke(packet);
-			} catch (IOException) {
-				NotifyConnectionClosed();
-			}
-		}
-			});
-	}
-
-	private void Write(NetworkStream stream, byte[] bytes) {
-		stream.Write(bytes, 0, bytes.Length);
-	}
-
-	private void WritePacket(NetworkStream stream, string packetJson) {
-		Write(stream, BitConverter.GetBytes(packetJson.Length));
-		Write(stream, Encoding.UTF8.GetBytes(packetJson));
-	}
-
-	public Task WritePacketAsync(IClientPacket packet) {
-		return Task.Factory.StartNew(() = >
-				{
-						lock(stream)
-						{
-		try {
-			WritePacket(stream, JsonConvert.SerializeObject(packet, packet.GetType(), JsonSettings));
-		} catch (IOException) {
-			NotifyConnectionClosed();
-		}
+	public Future startClientSidePacketReader(OnPacketReceivedListener onPacketReceived) {
+		return service.submit(() -> {
+			while (open) {
+				try {
+					String json = readPacket(inputStream);
+					ClientSidePacket packet = serializer.fromJson(json, ClientSidePacket.class);
+					if (packet != null)
+						onPacketReceived.onPacketReceived(packet);
+				} catch (IOException e) {
+					notifyConnectionClosed();
 				}
-			});
-	}
-
-	public Task WritePacketAsync(IServerPacket packet) {
-		return Task.Factory.StartNew(() = >
-				{
-						lock(stream)
-						{
-		try {
-			WritePacket(stream, JsonConvert.SerializeObject(packet, packet.GetType(), JsonSettings));
-		} catch (IOException) {
-			NotifyConnectionClosed();
-		}
-				}
-			});
-	}
-
-	public Type BindToType(string assemblyName, string typeName) {
-		try {
-			Type type = Type.GetType(typeName);
-			if (!(typeof(IServerPacket).IsAssignableFrom(type) ||
-					typeof(IClientPacket).IsAssignableFrom(type) ||
-					typeof(IData).IsAssignableFrom(type) ||
-					typeof(IEnumerable).IsAssignableFrom(type))) {
-				if (typeof(Color).FullName == typeName)
-					return typeof(Color);
-				else
-					return null;
 			}
-			return type;
-		} catch (Exception) {
-			return null;
-		}
+		});
 	}
 
-	public void BindToName(Type serializedType, out string assemblyName, out string typeName) {
-		assemblyName = "CsharpEindopdracht";
-		typeName = typeof(IServerPacket).IsAssignableFrom(serializedType) ||
-				typeof(IClientPacket).IsAssignableFrom(serializedType) ||
-				typeof(IData).IsAssignableFrom(serializedType) ||
-				typeof(IEnumerable).IsAssignableFrom(serializedType) ||
-				serializedType == typeof(Color) ?
-				serializedType.AssemblyQualifiedName : null;
-	}
+//	public Task StartServerSidePacketReader(Action<IServerPacket> onPacketReceived) {
+//		return Task.Factory.StartNew(() = >
+//				{
+//		while (Open) {
+//			try {
+//				string json = ReadPacket(stream);
+//				IServerPacket packet = JsonConvert.DeserializeObject < IServerPacket > (json, JsonSettings)
+//				;
+//				if (packet != null)
+//					onPacketReceived ?.Invoke(packet);
+//			} catch (IOException) {
+//				NotifyConnectionClosed();
+//			}
+//		}
+//			});
+//	}
+//
+//	private void Write(NetworkStream stream, byte[] bytes) {
+//		stream.Write(bytes, 0, bytes.Length);
+//	}
+//
+//	private void WritePacket(NetworkStream stream, string packetJson) {
+//		Write(stream, BitConverter.GetBytes(packetJson.Length));
+//		Write(stream, Encoding.UTF8.GetBytes(packetJson));
+//	}
+//
+//	public Task WritePacketAsync(IClientPacket packet) {
+//		return Task.Factory.StartNew(() = >
+//				{
+//						lock(stream)
+//						{
+//		try {
+//			WritePacket(stream, JsonConvert.SerializeObject(packet, packet.GetType(), JsonSettings));
+//		} catch (IOException) {
+//			NotifyConnectionClosed();
+//		}
+//				}
+//			});
+//	}
+//
+//	public Task WritePacketAsync(IServerPacket packet) {
+//		return Task.Factory.StartNew(() = >
+//				{
+//						lock(stream)
+//						{
+//		try {
+//			WritePacket(stream, JsonConvert.SerializeObject(packet, packet.GetType(), JsonSettings));
+//		} catch (IOException) {
+//			NotifyConnectionClosed();
+//		}
+//				}
+//			});
+//	}
+
+//	public Type BindToType(string assemblyName, string typeName) {
+//		try {
+//			Type type = Type.GetType(typeName);
+//			if (!(typeof(IServerPacket).IsAssignableFrom(type) ||
+//					typeof(IClientPacket).IsAssignableFrom(type) ||
+//					typeof(IData).IsAssignableFrom(type) ||
+//					typeof(IEnumerable).IsAssignableFrom(type))) {
+//				if (typeof(Color).FullName == typeName)
+//					return typeof(Color);
+//				else
+//					return null;
+//			}
+//			return type;
+//		} catch (Exception) {
+//			return null;
+//		}
+//	}
+//
+//	public void BindToName(Type serializedType, out string assemblyName, out string typeName) {
+//		assemblyName = "CsharpEindopdracht";
+//		typeName = typeof(IServerPacket).IsAssignableFrom(serializedType) ||
+//				typeof(IClientPacket).IsAssignableFrom(serializedType) ||
+//				typeof(IData).IsAssignableFrom(serializedType) ||
+//				typeof(IEnumerable).IsAssignableFrom(serializedType) ||
+//				serializedType == typeof(Color) ?
+//				serializedType.AssemblyQualifiedName : null;
+//	}
 
 	@FunctionalInterface
-	public interface OnPacketReceivedListener<T extends Packet> {
-		void onPacketReceived()
+	public interface OnPacketReceivedListener {
+		void onPacketReceived(ClientSidePacket packet);
 	}
 }
